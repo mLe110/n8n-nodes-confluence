@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-export const documentOperations: INodeProperties[] = [
+export const spaceOperations: INodeProperties[] = [
     {
         displayName: 'Operation',
         name: 'operation',
@@ -8,50 +8,41 @@ export const documentOperations: INodeProperties[] = [
         noDataExpression: true,
         displayOptions: {
             show: {
-                resource: ['document'],
+                resource: ['space'],
             },
         },
         options: [
             {
-                name: 'Create',
-                value: 'create',
-                action: 'Create a document',
+                name: 'Get Spaces',
+                value: 'getSpaces',
+                action: 'Get spaces for user',
             },
             {
-                name: 'Get',
-                value: 'get',
-                action: 'Get a document',
-            },
-            {
-                name: 'Update',
-                value: 'update',
-                action: 'Update a document',
+                name: 'Get Space Content',
+                value: 'getSpaceContent',
+                action: 'Get space content',
             },
         ],
-        default: 'create',
+        default: 'getSpaces',
     },
 ];
 
-export const documentFields: INodeProperties[] = [
+export const spaceFields: INodeProperties[] = [
     /* -------------------------------------------------------------------------- */
-    /*                                 document: create                           */
+    /*                                 space: getSpaces                           */
     /* -------------------------------------------------------------------------- */
     {
-        displayName: 'Drive Name or ID',
-        name: 'driveId',
-        type: 'options',
-        description:
-            'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-        typeOptions: {
-            loadOptionsMethod: 'getDrives',
-        },
-        default: 'myDrive',
+        displayName: 'Space ID',
+        name: 'spaceId',
+        type: 'string',
+        description: 'Get content (incl. images in text) from the given space. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+        default: '',
         required: true,
         displayOptions: {
             show: {
-                operation: ['create'],
-                resource: ['document'],
+                operation: ['getSpaceContent'],
+                resource: ['space'],
             },
         },
     },
-]
+];
