@@ -16,7 +16,7 @@
     "url": "https://github.com/mLe110/n8n-nodes-confluence-scraper.git"
   },
   "engines": {
-    "node": ">=20.15"
+    "node": ">=22.18"
   },
   "main": "index.js",
   "scripts": {
