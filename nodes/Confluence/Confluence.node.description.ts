@@ -29,7 +29,7 @@ export const spaceOperations: INodeProperties[] = [
 
 export const spaceFields: INodeProperties[] = [
     /* -------------------------------------------------------------------------- */
-    /*                                 space: getSpaces                           */
+    /*                              space: getSpaceContent                        */
     /* -------------------------------------------------------------------------- */
     {
         displayName: 'Space ID',
