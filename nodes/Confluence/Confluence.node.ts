@@ -5,8 +5,9 @@ import type {
 	INodeTypeDescription,
 	IHttpRequestOptions,
 } from 'n8n-workflow';
-import { NodeConnectionType } from 'n8n-workflow';
+import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { spaceFields, spaceOperations } from './Confluence.node.description';
+import { spacePageSchema } from './models';
 
 export class Confluence implements INodeType {
 	description: INodeTypeDescription = {
@@ -56,6 +57,8 @@ export class Confluence implements INodeType {
 	};
 	helpers: any;
 
+	// Zod schemas moved to `nodes/Confluence/models.ts`
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		//const items = this.getInputData();
 		const baseUrl = this.getNodeParameter('baseUrl', 0);
@@ -76,13 +79,24 @@ export class Confluence implements INodeType {
 						json: true,
 						qs: { limit, start },
 					};
-					const page = (await this.helpers.requestWithAuthentication.call(
+					const pageRaw = await this.helpers.requestWithAuthentication.call(
 						this,
 						'confluenceCredentialsApi',
 						options,
-					)) as { results?: Array<any> } & { size?: number };
+					);
 
-					const spaces = page?.results ?? [];
+					const parsed = spacePageSchema.safeParse(pageRaw);
+					if (!parsed.success) {
+						const formatted = parsed.error.errors
+							.map((e) => `${e.path.join('.') || '(root)'}: ${e.message}`)
+							.join('\n');
+						throw new NodeOperationError(
+							this.getNode(),
+							`Invalid response from Confluence API while fetching spaces.\n${formatted}`,
+						);
+					}
+
+					const spaces = parsed.data.results;
 					for (const s of spaces) {
 						returnData.push({
 							json: {
@@ -108,16 +122,4 @@ export class Confluence implements INodeType {
 
 		return [returnData];
 	}
-
-	//	async getSpaces(baseUrl: string): Promise<any> {
-	//		const options: IHttpRequestOptions = {
-	//			headers: {
-	//				Accept: 'application/json',
-	//			},
-	//			method: 'GET',
-	//			url: `${baseUrl}/rest/api/space`,
-	//			json: true,
-	//		};
-	//		return await this.helpers.requestWithAuthentication.call(this, 'friendGridApi', options);
-	//	}
 }
