@@ -24,3 +24,55 @@ export const spacePageSchema = z.object({
 
 export type Space = z.infer<typeof spaceSchema>;
 export type SpacePage = z.infer<typeof spacePageSchema>;
+
+// Content schemas
+export const storageBodySchema = z.object({
+	value: z.string(),
+	representation: z.string().optional(),
+	_expandable: z.unknown().optional(),
+});
+
+export const contentBodySchema = z.object({
+	storage: storageBodySchema,
+	_expandable: z.unknown().optional(),
+});
+
+export const linkSchema = z.object({
+	webui: z.string(),
+});
+
+export const contentPageSchema = z.object({
+	id: z.string(),
+	type: z.literal('page').or(z.string()),
+	status: z.string().optional(),
+	title: z.string(),
+	body: contentBodySchema,
+	_links: linkSchema,
+	_expandable: z.unknown().optional(),
+});
+
+export const spaceContentEnvelopeSchema = z.object({
+	page: z.object({
+		results: z.array(contentPageSchema),
+		start: z.number().optional(),
+		limit: z.number().optional(),
+		size: z.number().optional(),
+		_links: z
+			.object({ self: z.string().optional(), next: z.string().optional() })
+			.partial()
+			.optional(),
+	}),
+	blogpost: z
+		.object({
+			results: z.array(z.unknown()),
+			start: z.number().optional(),
+			limit: z.number().optional(),
+			size: z.number().optional(),
+			_links: z.unknown().optional(),
+		})
+		.optional(),
+	_links: z.unknown().optional(),
+});
+
+export type ContentPage = z.infer<typeof contentPageSchema>;
+export type SpaceContentEnvelope = z.infer<typeof spaceContentEnvelopeSchema>;
