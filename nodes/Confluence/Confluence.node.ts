@@ -10,6 +10,15 @@ import { spaceFields, spaceOperations } from './Confluence.node.description';
 import { spacePageSchema, spaceContentEnvelopeSchema, type ParsedPage } from './models';
 import { buildPagePlainText } from './transformations';
 import { parseOrThrow } from './validation';
+import {
+	extractImageReferences,
+	fetchPageAttachments,
+	matchImagesToAttachments,
+	downloadImage,
+	replaceImageTagsWithDescriptions,
+	isImageAttachment,
+} from './images';
+import { generateImageDescription, type AIVisionConfig } from './ai-vision';
 
 export class Confluence implements INodeType {
 	description: INodeTypeDescription = {
@@ -112,9 +121,10 @@ export class Confluence implements INodeType {
 					}
 
 					// advance or stop
-					const pageCount = spaces.length;
-					if (pageCount < limit) break;
-					start += pageCount;
+					//const pageCount = spaces.length;
+					//if (pageCount < limit) break;
+					//start += pageCount;
+					break;
 				}
 			}
 			if (operation === 'getSpaceContent') {
@@ -122,6 +132,24 @@ export class Confluence implements INodeType {
 					try {
 						const spaceKey = this.getNodeParameter('spaceKey', itemIndex, '') as string;
 						const spaceName = this.getNodeParameter('spaceName', itemIndex, '') as string;
+						const processImages = this.getNodeParameter(
+							'processImages',
+							itemIndex,
+							false,
+						) as boolean;
+
+						// Image processing configuration
+						let aiConfig: AIVisionConfig | null = null;
+						if (processImages) {
+							aiConfig = {
+								provider: this.getNodeParameter('aiProvider', itemIndex, 'openai') as any,
+								apiKey: this.getNodeParameter('aiApiKey', itemIndex, '') as string,
+								model: this.getNodeParameter('aiModel', itemIndex, '') as string,
+								apiUrl: this.getNodeParameter('aiApiUrl', itemIndex, '') as string,
+								maxTokens: 150,
+								temperature: 0.3,
+							};
+						}
 						const item = items[itemIndex];
 						(this as any).logger?.info?.('Confluence: getSpaceContent', {
 							node: this.getNode().name,
@@ -141,6 +169,8 @@ export class Confluence implements INodeType {
 								qs: { expand: 'body.storage', limit, start },
 							};
 
+							(this as any).logger?.debug?.(`Confluence: getSpaceContent for space ${spaceKey}`);
+
 							const raw = await this.helpers.requestWithAuthentication.call(
 								this,
 								'confluenceCredentialsApi',
@@ -156,12 +186,88 @@ export class Confluence implements INodeType {
 							);
 
 							const parsedPages = parsed.page.results;
+							(this as any).logger?.debug?.(`Pages found: ${parsedPages.length}`);
+
 							for (const p of parsedPages) {
+								let processedBody = p.body.storage.value || '';
+
+								// Process images if enabled
+								if (processImages && aiConfig) {
+									try {
+										(this as any).logger?.debug?.(`Processing images for page ${p.id}`);
+
+										const imageRefs = extractImageReferences(processedBody);
+										if (imageRefs.length > 0) {
+											(this as any).logger?.debug?.(
+												`Found ${imageRefs.length} images in page ${p.id}`,
+											);
+
+											const attachments = await fetchPageAttachments(
+												this,
+												baseUrl as string,
+												p.id,
+												itemIndex,
+											);
+											const imageAttachments = attachments.filter(isImageAttachment);
+
+											const matchedImages = matchImagesToAttachments(imageRefs, imageAttachments);
+
+											for (const img of matchedImages) {
+												if (img.attachmentId) {
+													const attachment = imageAttachments.find(
+														(a) => a.id === img.attachmentId,
+													);
+													if (attachment) {
+														try {
+															(this as any).logger?.debug?.(`Downloading image: ${img.filename}`);
+															const imageData = await downloadImage(
+																this,
+																baseUrl as string,
+																attachment._links.download || '',
+															);
+															(this as any).logger?.debug?.(
+																`Generating description for: ${img.filename || 'unknown'}`,
+															);
+															img.description = await generateImageDescription(
+																this,
+																imageData,
+																img.filename,
+																aiConfig!,
+															);
+															(this as any).logger?.debug?.(
+																`Generated description: ${img.description}`,
+															);
+														} catch (imgError) {
+															(this as any).logger?.warn?.(
+																`Failed to process image ${img.filename}:`,
+																imgError,
+															);
+															img.description = `Bild: ${img.filename} (Beschreibung nicht verfügbar)`;
+														}
+													}
+												} else {
+													img.description = `Bild: ${img.filename} (Anhang nicht gefunden)`;
+												}
+											}
+
+											processedBody = replaceImageTagsWithDescriptions(
+												processedBody,
+												matchedImages,
+											);
+										}
+									} catch (imgProcessError) {
+										(this as any).logger?.warn?.(
+											`Failed to process images for page ${p.id}:`,
+											imgProcessError,
+										);
+									}
+								}
+
 								const plainText = buildPagePlainText(
-									spaceName,
-									spaceKey,
-									p.title,
-									p.body.storage.value || '',
+									spaceName || '',
+									spaceKey || '',
+									p.title || '',
+									processedBody,
 								);
 
 								pages.push({
@@ -169,8 +275,8 @@ export class Confluence implements INodeType {
 									spaceName,
 									id: p.id,
 									title: p.title,
-									body: p.body.storage.value,
-									plainText,
+									body: p.body.storage.value, // Keep original HTML
+									plainText, // Use processed plain text
 									webuiLink: p._links.webui,
 								});
 							}

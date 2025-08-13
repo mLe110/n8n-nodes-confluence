@@ -88,3 +88,51 @@ export const parsedPageSchema = z.object({
 	webuiLink: z.string().optional().default(''),
 });
 export type ParsedPage = z.infer<typeof parsedPageSchema>;
+
+// Attachment schemas for image processing
+export const attachmentSchema = z.object({
+	id: z.string(),
+	type: z.literal('attachment'),
+	status: z.string(),
+	title: z.string(),
+	metadata: z
+		.object({
+			mediaType: z.string(),
+			_expandable: z.unknown().optional(),
+		})
+		.optional(),
+	extensions: z
+		.object({
+			mediaType: z.string(),
+			fileSize: z.number().optional(),
+		})
+		.optional(),
+	_links: z.object({
+		download: z.string(),
+		thumbnail: z.string().optional(),
+		self: z.string().optional(),
+		webui: z.string().optional(),
+	}),
+	_expandable: z.unknown().optional(),
+});
+
+export const attachmentPageSchema = z.object({
+	results: z.array(attachmentSchema),
+	start: z.number().optional(),
+	limit: z.number().optional(),
+	size: z.number().optional(),
+	_links: z.unknown().optional(),
+});
+
+export type Attachment = z.infer<typeof attachmentSchema>;
+export type AttachmentPage = z.infer<typeof attachmentPageSchema>;
+
+// Image reference extracted from HTML
+export const imageReferenceSchema = z.object({
+	filename: z.string(),
+	originalTag: z.string(), // the full <ac:image>...</ac:image> tag
+	attachmentId: z.string().optional(), // resolved from attachments list
+	description: z.string().optional(), // AI-generated description
+});
+
+export type ImageReference = z.infer<typeof imageReferenceSchema>;

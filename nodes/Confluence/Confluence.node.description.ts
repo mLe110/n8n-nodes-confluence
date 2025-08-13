@@ -59,4 +59,101 @@ export const spaceFields: INodeProperties[] = [
 			},
 		},
 	},
+	/* -------------------------------------------------------------------------- */
+	/*                           Image Processing Options                         */
+	/* -------------------------------------------------------------------------- */
+	{
+		displayName: 'Process Images',
+		name: 'processImages',
+		type: 'boolean',
+		default: false,
+		description:
+			'Whether to extract images from pages, generate AI descriptions, and replace image tags with descriptions',
+		displayOptions: {
+			show: {
+				operation: ['getSpaceContent'],
+				resource: ['space'],
+			},
+		},
+	},
+	{
+		displayName: 'AI Vision Provider',
+		name: 'aiProvider',
+		type: 'options',
+		default: 'openai',
+		options: [
+			{
+				name: 'OpenAI GPT-4 Vision',
+				value: 'openai',
+			},
+			{
+				name: 'Anthropic Claude 3',
+				value: 'anthropic',
+			},
+			{
+				name: 'Google Gemini Vision',
+				value: 'google',
+			},
+			{
+				name: 'Custom API',
+				value: 'custom',
+			},
+		],
+		description: 'AI service to use for generating image descriptions',
+		displayOptions: {
+			show: {
+				operation: ['getSpaceContent'],
+				resource: ['space'],
+				processImages: [true],
+			},
+		},
+	},
+	{
+		displayName: 'API Key',
+		name: 'aiApiKey',
+		type: 'string',
+		typeOptions: {
+			password: true,
+		},
+		default: '',
+		description: 'API key for the AI vision service',
+		displayOptions: {
+			show: {
+				operation: ['getSpaceContent'],
+				resource: ['space'],
+				processImages: [true],
+			},
+		},
+	},
+	{
+		displayName: 'AI Model',
+		name: 'aiModel',
+		type: 'string',
+		default: '',
+		placeholder: 'gpt-4o, claude-3-sonnet-20240229, gemini-pro-vision',
+		description: 'Specific model to use (leave empty for provider default)',
+		displayOptions: {
+			show: {
+				operation: ['getSpaceContent'],
+				resource: ['space'],
+				processImages: [true],
+			},
+		},
+	},
+	{
+		displayName: 'Custom API URL',
+		name: 'aiApiUrl',
+		type: 'string',
+		default: '',
+		placeholder: 'https://api.example.com/v1/vision',
+		description: 'Custom API endpoint URL (required for custom provider)',
+		displayOptions: {
+			show: {
+				operation: ['getSpaceContent'],
+				resource: ['space'],
+				processImages: [true],
+				aiProvider: ['custom'],
+			},
+		},
+	},
 ];
