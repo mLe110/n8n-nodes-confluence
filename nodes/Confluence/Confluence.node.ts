@@ -7,7 +7,9 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { spaceFields, spaceOperations } from './Confluence.node.description';
-import { spacePageSchema, spaceContentEnvelopeSchema } from './models';
+import { spacePageSchema, spaceContentEnvelopeSchema, type ParsedPage } from './models';
+import { buildPagePlainText } from './transformations';
+import { parseOrThrow } from './validation';
 
 export class Confluence implements INodeType {
 	description: INodeTypeDescription = {
@@ -85,18 +87,15 @@ export class Confluence implements INodeType {
 						options,
 					);
 
-					const parsed = spacePageSchema.safeParse(pageRaw);
-					if (!parsed.success) {
-						const formatted = parsed.error.errors
-							.map((e) => `${e.path.join('.') || '(root)'}: ${e.message}`)
-							.join('\n');
-						throw new NodeOperationError(
-							this.getNode(),
-							`Invalid response from Confluence API while fetching spaces.\n${formatted}`,
-						);
-					}
+					const parsed = parseOrThrow(
+						this,
+						spacePageSchema,
+						pageRaw,
+						'Invalid response from Confluence API while fetching spaces.',
+						0,
+					);
 
-					const spaces = parsed.data.results;
+					const spaces = parsed.results;
 					for (const s of spaces) {
 						returnData.push({
 							json: {
@@ -131,14 +130,7 @@ export class Confluence implements INodeType {
 
 						const limit = 100;
 						let start = 0;
-						const pages: Array<{
-							spaceKey: string;
-							spaceName: string;
-							id: string;
-							title: string;
-							body: string;
-							webuiLink: string;
-						}> = [];
+						const pages: ParsedPage[] = [];
 
 						while (true) {
 							const options: IHttpRequestOptions = {
@@ -155,31 +147,35 @@ export class Confluence implements INodeType {
 								options,
 							);
 
-							const parsed = spaceContentEnvelopeSchema.safeParse(raw);
-							if (!parsed.success) {
-								const formatted = parsed.error.errors
-									.map((e) => `${e.path.join('.') || '(root)'}: ${e.message}`)
-									.join('\n');
-								throw new NodeOperationError(
-									this.getNode(),
-									`Invalid response from Confluence API while fetching space content.\n${formatted}`,
-									{ itemIndex },
-								);
-							}
+							const parsed = parseOrThrow(
+								this,
+								spaceContentEnvelopeSchema,
+								raw,
+								'Invalid response from Confluence API while fetching space content.',
+								itemIndex,
+							);
 
-							const batch = parsed.data.page.results;
-							for (const p of batch) {
+							const parsedPages = parsed.page.results;
+							for (const p of parsedPages) {
+								const plainText = buildPagePlainText(
+									spaceName,
+									spaceKey,
+									p.title,
+									p.body.storage.value || '',
+								);
+
 								pages.push({
-									spaceKey: spaceKey,
-									spaceName: spaceName,
+									spaceKey,
+									spaceName,
 									id: p.id,
 									title: p.title,
 									body: p.body.storage.value,
+									plainText,
 									webuiLink: p._links.webui,
 								});
 							}
 
-							const count = batch.length;
+							const count = parsedPages.length;
 							if (count < limit) break;
 							start += count;
 						}

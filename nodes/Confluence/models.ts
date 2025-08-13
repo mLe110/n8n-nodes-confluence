@@ -76,3 +76,15 @@ export const spaceContentEnvelopeSchema = z.object({
 
 export type ContentPage = z.infer<typeof contentPageSchema>;
 export type SpaceContentEnvelope = z.infer<typeof spaceContentEnvelopeSchema>;
+
+// Parsed shape for node items when returning page content (clean + html)
+export const parsedPageSchema = z.object({
+	spaceKey: z.string(),
+	spaceName: z.string().optional().default(''),
+	id: z.string(),
+	title: z.string(),
+	body: z.string(), // storage HTML
+	plainText: z.string(), // cleaned plaintext for embeddings/search
+	webuiLink: z.string().optional().default(''),
+});
+export type ParsedPage = z.infer<typeof parsedPageSchema>;
