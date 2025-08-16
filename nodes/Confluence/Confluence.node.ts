@@ -8,8 +8,8 @@ import type {
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { spaceFields, spaceOperations } from './Confluence.node.description';
 import { spacePageSchema, spaceContentEnvelopeSchema, type ParsedPage } from './models';
-import { buildPagePlainText } from './transformations';
-import { parseOrThrow } from './validation';
+import { buildPagePlainText } from './helper/transformations';
+import { parseOrThrow } from './helper/validation';
 import {
 	extractImageReferences,
 	fetchPageAttachments,
@@ -17,8 +17,8 @@ import {
 	downloadImage,
 	replaceImageTagsWithDescriptions,
 	isImageAttachment,
-} from './images';
-import { generateImageDescription, type AIVisionConfig } from './ai-vision';
+} from './helper/images';
+import { generateImageDescription, type AIVisionConfig } from './helper/ai-vision';
 
 export class Confluence implements INodeType {
 	description: INodeTypeDescription = {
@@ -54,6 +54,7 @@ export class Confluence implements INodeType {
 				name: 'resource',
 				type: 'options',
 				noDataExpression: true,
+				required: true,
 				options: [
 					{
 						name: 'Space',
@@ -68,8 +69,6 @@ export class Confluence implements INodeType {
 	};
 	helpers: any;
 
-	// Zod schemas moved to `nodes/Confluence/models.ts`
-
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const baseUrl = this.getNodeParameter('baseUrl', 0);
@@ -80,7 +79,7 @@ export class Confluence implements INodeType {
 
 		if (resource === 'space') {
 			if (operation === 'getSpaces') {
-				const limit = 50;
+				const limit = 100;
 				let start = 0;
 				while (true) {
 					const options: IHttpRequestOptions = {
@@ -121,10 +120,9 @@ export class Confluence implements INodeType {
 					}
 
 					// advance or stop
-					//const pageCount = spaces.length;
-					//if (pageCount < limit) break;
-					//start += pageCount;
-					break;
+					const pageCount = spaces.length;
+					if (pageCount < limit) break;
+					start += pageCount;
 				}
 			}
 			if (operation === 'getSpaceContent') {
@@ -138,12 +136,22 @@ export class Confluence implements INodeType {
 							false,
 						) as boolean;
 
+						// TODO: refactor into separate method - maybe remove other LLM options than OpenAI
 						// Image processing configuration
 						let aiConfig: AIVisionConfig | null = null;
 						if (processImages) {
+							const apiKey = this.getNodeParameter('aiApiKey', itemIndex, '') as string;
+							if (!apiKey) {
+								throw new NodeOperationError(
+									this.getNode(),
+									'AI Vision API key is required when image processing is enabled',
+									{ itemIndex },
+								);
+							}
+
 							aiConfig = {
 								provider: this.getNodeParameter('aiProvider', itemIndex, 'openai') as any,
-								apiKey: this.getNodeParameter('aiApiKey', itemIndex, '') as string,
+								apiKey,
 								model: this.getNodeParameter('aiModel', itemIndex, '') as string,
 								apiUrl: this.getNodeParameter('aiApiUrl', itemIndex, '') as string,
 								maxTokens: 150,
@@ -160,6 +168,9 @@ export class Confluence implements INodeType {
 						let start = 0;
 						const pages: ParsedPage[] = [];
 
+						// TODO: remove logs that output base64 image content
+						// TODO: add logs that show progress, e.g., page x/y processed
+						// TODO: remove html content from process variables
 						while (true) {
 							const options: IHttpRequestOptions = {
 								headers: { Accept: 'application/json' },
@@ -215,28 +226,28 @@ export class Confluence implements INodeType {
 											for (const img of matchedImages) {
 												if (img.attachmentId) {
 													const attachment = imageAttachments.find(
-														(a) => a.id === img.attachmentId,
+														(a: any) => a.id === img.attachmentId,
 													);
 													if (attachment) {
 														try {
-															(this as any).logger?.debug?.(`Downloading image: ${img.filename}`);
+															//(this as any).logger?.debug?.(`Downloading image: ${img.filename}`);
 															const imageData = await downloadImage(
 																this,
 																baseUrl as string,
 																attachment._links.download || '',
 															);
-															(this as any).logger?.debug?.(
-																`Generating description for: ${img.filename || 'unknown'}`,
-															);
+															//(this as any).logger?.debug?.(
+															//	`Generating description for: ${img.filename || 'unknown'}`,
+															//);
 															img.description = await generateImageDescription(
 																this,
 																imageData,
 																img.filename,
 																aiConfig!,
 															);
-															(this as any).logger?.debug?.(
-																`Generated description: ${img.description}`,
-															);
+															//(this as any).logger?.debug?.(
+															//	`Generated description: ${img.description}`,
+															//);
 														} catch (imgError) {
 															(this as any).logger?.warn?.(
 																`Failed to process image ${img.filename}:`,
@@ -282,8 +293,17 @@ export class Confluence implements INodeType {
 							}
 
 							const count = parsedPages.length;
-							if (count < limit) break;
+							(this as any).logger?.debug?.(
+								`Pagination check: count=${count}, limit=${limit}, should break=${count === 0 || count < limit}`,
+							);
+							if (count === 0 || count < limit) {
+								(this as any).logger?.debug?.(
+									`Breaking pagination loop: processed ${pages.length} total pages`,
+								);
+								break;
+							}
 							start += count;
+							(this as any).logger?.debug?.(`Continuing pagination: new start=${start}`);
 						}
 
 						item.json.content = pages;

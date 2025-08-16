@@ -6,6 +6,7 @@ export const spaceOperations: INodeProperties[] = [
 		name: 'operation',
 		type: 'options',
 		noDataExpression: true,
+		required: true,
 		displayOptions: {
 			show: {
 				resource: ['space'],
@@ -68,7 +69,7 @@ export const spaceFields: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether to extract images from pages, generate AI descriptions, and replace image tags with descriptions',
+			'Whether to extract images from pages, generate AI descriptions, and replace image tags with descriptions. Note: Requires AI Vision API credential to be configured.',
 		displayOptions: {
 			show: {
 				operation: ['getSpaceContent'],

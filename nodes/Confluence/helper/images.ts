@@ -1,6 +1,6 @@
 import type { IExecuteFunctions, IHttpRequestOptions } from 'n8n-workflow';
-import type { Attachment, ImageReference } from './models';
-import { attachmentPageSchema } from './models';
+import type { Attachment, ImageReference } from '../models';
+import { attachmentPageSchema } from '../models';
 import { parseOrThrow } from './validation';
 
 /**
