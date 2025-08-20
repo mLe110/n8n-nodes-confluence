@@ -32,6 +32,7 @@ export async function generateImageDescription(
 		throw new Error(`Unsupported image format: ${mimeType} for file ${filename}`);
 	}
 
+	// TODO Add azure open ai
 	switch (config.provider) {
 		case 'openai':
 			return generateOpenAIDescription(ctx, base64Image, mimeType, config, filename);

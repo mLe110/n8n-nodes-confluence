@@ -124,8 +124,7 @@ Follow these steps to publish the package to npm:
 3. Build and lint
 
    ```bash
-   npm run build
-   npm run lint -c .eslintrc.prepublish.js nodes credentials package.json
+   npm run prepublishOnly
    ```
 
 4. Bump the version
