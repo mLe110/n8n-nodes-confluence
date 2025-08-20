@@ -5,16 +5,22 @@ import {
 	INodeProperties,
 } from 'n8n-workflow';
 
-export class ExampleCredentialsApi implements ICredentialType {
-	name = 'exampleCredentialsApi';
-	displayName = 'Example Credentials API';
+export class ConfluenceCredentialsApi implements ICredentialType {
+	name = 'confluenceCredentialsApi';
+	displayName = 'Confluence Credentials API';
 
 	documentationUrl = 'https://your-docs-url';
 
 	properties: INodeProperties[] = [
-		// The credentials to get from user and save encrypted.
-		// Properties can be defined exactly in the same way
-		// as node properties.
+		{
+			displayName: 'APIM Subscription Key',
+			name: 'apimSubscriptionKey',
+			type: 'string',
+			typeOptions: {
+				password: true,
+			},
+			default: '',
+		},
 		{
 			displayName: 'User Name',
 			name: 'username',
@@ -32,9 +38,6 @@ export class ExampleCredentialsApi implements ICredentialType {
 		},
 	];
 
-	// This credential is currently not used by any node directly
-	// but the HTTP Request node can use it to make requests.
-	// The credential is also testable due to the `test` property below
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
 		properties: {
@@ -42,14 +45,12 @@ export class ExampleCredentialsApi implements ICredentialType {
 				username: '={{ $credentials.username }}',
 				password: '={{ $credentials.password }}',
 			},
-			qs: {
-				// Send this as part of the query string
-				n8n: 'rocks',
+			headers: {
+				'Ocp-Apim-Subscription-Key': '={{ $credentials.apimSubscriptionKey }}',
 			},
 		},
 	};
 
-	// The block below tells how this credential can be tested
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: 'https://example.com/',
